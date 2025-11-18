@@ -83,6 +83,20 @@ class Settings(BaseSettings):
         description="Minimum similarity score for retrieval",
     )
 
+    # File Context Reconstruction Configuration
+    enable_file_reconstruction: bool = Field(
+        default=True,
+        description="Enable two-step retrieval with file I/O reads for complete context",
+    )
+    context_lines_before_after: int = Field(
+        default=10,
+        description="Number of lines to expand before/after retrieved chunks",
+    )
+    max_lines_per_file: int = Field(
+        default=100,
+        description="Maximum lines to include per file in reconstructed context",
+    )
+
     # LLM Configuration
     llm_context_window: int = Field(
         default=8192,

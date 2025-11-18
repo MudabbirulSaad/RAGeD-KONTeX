@@ -209,12 +209,17 @@ def query(query_text: str, top_k: int, file_filter: str, interactive: bool, no_e
                     console.print("[yellow]Note: No dependency graph found. Context expansion disabled.[/yellow]")
                     console.print("[yellow]To enable expansion, index a codebase first or use --graph-path[/yellow]\n")
 
-        pipeline = QueryPipeline(settings, dependency_graph=dependency_graph)
+        pipeline = QueryPipeline(
+            settings,
+            dependency_graph=dependency_graph,
+            codebase_root=active_codebase.path,
+        )
         
         if interactive:
-            # Interactive mode
+            # Interactive mode with chat history
             console.print("\n[bold blue]Interactive Query Mode[/bold blue]")
-            console.print("Type 'exit' or 'quit' to exit\n")
+            console.print("Type 'exit' or 'quit' to exit")
+            console.print("Type 'clear' to clear chat history\n")
 
             # If query_text was provided with --interactive, ignore it
             # (user wants interactive mode, not a single query)
@@ -227,16 +232,26 @@ def query(query_text: str, top_k: int, file_filter: str, interactive: bool, no_e
                         console.print("\n[yellow]Goodbye![/yellow]\n")
                         break
 
+                    if user_query.lower() == "clear":
+                        pipeline.clear_chat_history()
+                        console.print("[green]✓ Chat history cleared[/green]\n")
+                        continue
+
                     response = pipeline.query(
                         query_text=user_query,
                         top_k=top_k,
                         file_path_filter=file_filter,
                         enable_expansion=not no_expansion,
                         verbose=True,
+                        use_chat_history=True,  # Enable chat history in interactive mode
                     )
 
                     console.print("\n[bold green]Response:[/bold green]")
                     console.print(Markdown(response))
+
+                    # Show chat history length
+                    history_len = pipeline.get_chat_history_length()
+                    console.print(f"\n[dim]Chat history: {history_len // 2} exchanges[/dim]")
                     console.print("\n" + "=" * 80 + "\n")
 
                 except KeyboardInterrupt:

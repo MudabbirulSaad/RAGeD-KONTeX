@@ -7,7 +7,7 @@ Default 2048 would make RAG pipeline useless for large files.
 Updated to use latest ollama>=0.4.4 API with chat() method.
 """
 
-from typing import Optional, Dict, Any, Generator
+from typing import Optional, Dict, Any, Generator, List
 
 import ollama
 
@@ -146,19 +146,34 @@ class OllamaLLMService:
         query: str,
         context: str,
         system_prompt: Optional[str] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         """
-        Generate a response with retrieved context.
-        
+        Generate a response with retrieved context and optional chat history.
+
         Args:
             query: User query
             context: Retrieved context from vector store
             system_prompt: Optional system prompt
-            
+            chat_history: Optional list of previous messages [{"role": "user/assistant", "content": "..."}]
+
         Returns:
             Generated text
         """
-        # Build prompt with context
+        messages = []
+
+        # Add system prompt
+        if system_prompt:
+            messages.append({
+                "role": "system",
+                "content": system_prompt,
+            })
+
+        # Add chat history if provided
+        if chat_history:
+            messages.extend(chat_history)
+
+        # Build current prompt with context
         prompt = f"""Context from codebase:
 
 {context}
@@ -167,5 +182,26 @@ Question: {query}
 
 Please provide a detailed answer based on the context above. Include specific file paths and line numbers when referencing code."""
 
-        return self.generate(prompt=prompt, system_prompt=system_prompt)
+        messages.append({
+            "role": "user",
+            "content": prompt,
+        })
+
+        # Generate response
+        response = self.client.chat(
+            model=self.model,
+            messages=messages,
+            stream=False,
+            options={
+                "num_ctx": self.context_window,
+                "temperature": self.temperature,
+                "num_predict": self.max_tokens,
+            },
+        )
+
+        # Extract response text
+        if isinstance(response, dict):
+            return response.get("message", {}).get("content", "")
+        else:
+            return getattr(getattr(response, "message", None), "content", "")
 

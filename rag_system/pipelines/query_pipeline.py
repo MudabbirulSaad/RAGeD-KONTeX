@@ -1,0 +1,216 @@
+"""
+Query pipeline for RAG retrieval and generation.
+
+Orchestrates: Query → Embed → Search → Assemble → Generate → Response
+"""
+
+from typing import Optional, List, Dict, Any
+
+from rich.console import Console
+
+from ..config import Settings
+from ..core.embeddings import OllamaEmbeddingService
+from ..core.vectorstore import QdrantVectorStore
+from ..core.llm import OllamaLLMService
+from ..core.graph import DependencyGraph
+from ..core.expansion import ContextExpander, ExpansionStrategy
+
+
+class ContextAssembler:
+    """
+    Assembles retrieved chunks into formatted context for LLM.
+    
+    Formats chunks with file metadata (path, line numbers) for precise
+    code location references.
+    """
+
+    @staticmethod
+    def assemble_context(search_results: List[Dict[str, Any]]) -> str:
+        """
+        Assemble search results into formatted context.
+        
+        Args:
+            search_results: List of search results from Qdrant
+            
+        Returns:
+            Formatted context string
+        """
+        if not search_results:
+            return "No relevant code found."
+        
+        context_parts = []
+        
+        for idx, result in enumerate(search_results, 1):
+            payload = result["payload"]
+            score = result["score"]
+            
+            # Format each chunk with metadata
+            chunk_context = f"""
+--- Result {idx} (Similarity: {score:.3f}) ---
+File: {payload['relative_path']}
+Lines: {payload['start_line']}-{payload['end_line']}
+Language: {payload['language']}
+
+```{payload['language']}
+{payload['content']}
+```
+"""
+            context_parts.append(chunk_context)
+        
+        return "\n".join(context_parts)
+
+
+class QueryPipeline:
+    """
+    Online real-time query pipeline.
+    
+    Embeds query, searches vector store, assembles context,
+    and generates response using LLM.
+    """
+
+    def __init__(self, settings: Optional[Settings] = None, dependency_graph: Optional[DependencyGraph] = None):
+        """
+        Initialize the query pipeline.
+
+        Args:
+            settings: Application settings (uses defaults if not provided)
+            dependency_graph: Dependency graph for context expansion (optional)
+        """
+        from ..config import get_settings
+
+        self.settings = settings or get_settings()
+        self.console = Console()
+
+        # Initialize components
+        self.embedding_service = OllamaEmbeddingService(
+            base_url=self.settings.ollama_base_url,
+            model=self.settings.ollama_embedding_model,
+            batch_size=self.settings.embedding_batch_size,
+            expected_dimension=self.settings.embedding_dimension,
+        )
+
+        self.vector_store = QdrantVectorStore(
+            host=self.settings.qdrant_host,
+            port=self.settings.qdrant_port,
+            collection_name=self.settings.qdrant_collection_name,
+            vector_dimension=self.settings.embedding_dimension,
+        )
+
+        self.llm_service = OllamaLLMService(
+            base_url=self.settings.ollama_base_url,
+            model=self.settings.ollama_llm_model,
+            context_window=self.settings.llm_context_window,
+            temperature=self.settings.llm_temperature,
+            max_tokens=self.settings.llm_max_tokens,
+        )
+
+        self.context_assembler = ContextAssembler()
+
+        # Initialize context expander
+        self.dependency_graph = dependency_graph
+        self.context_expander = ContextExpander(dependency_graph=dependency_graph)
+
+    def query(
+        self,
+        query_text: str,
+        top_k: Optional[int] = None,
+        file_path_filter: Optional[str] = None,
+        enable_expansion: bool = True,
+        expansion_strategy: ExpansionStrategy = ExpansionStrategy.BIDIRECTIONAL,
+        verbose: bool = True,
+    ) -> str:
+        """
+        Execute a query against the indexed codebase.
+
+        Args:
+            query_text: User query
+            top_k: Number of results to retrieve (uses config default if None)
+            file_path_filter: Optional file path to filter results
+            enable_expansion: Whether to expand context using dependency graph
+            expansion_strategy: Strategy for context expansion
+            verbose: Whether to print progress
+
+        Returns:
+            Generated response
+        """
+        if verbose:
+            self.console.print(f"\n[bold blue]Query:[/bold blue] {query_text}\n")
+        
+        # Use config default if not specified
+        top_k = top_k or self.settings.top_k_results
+        
+        # Step 1: Embed query
+        if verbose:
+            self.console.print("[bold]Step 1/5:[/bold] Embedding query...")
+        query_vector = self.embedding_service.embed_query(query_text)
+        if verbose:
+            self.console.print("✓ Query embedded\n")
+        
+        # Step 2: Search vector store
+        if verbose:
+            self.console.print("[bold]Step 2/5:[/bold] Searching vector store...")
+        search_results = self.vector_store.search(
+            query_vector=query_vector,
+            top_k=top_k,
+            score_threshold=self.settings.search_score_threshold,
+            file_path_filter=file_path_filter,
+        )
+        if verbose:
+            self.console.print(f"✓ Found {len(search_results)} relevant chunks\n")
+
+        if not search_results:
+            return "No relevant code found for your query. Try rephrasing or check if the codebase is indexed."
+
+        # Step 3: Expand context using dependency graph
+        if enable_expansion and self.dependency_graph:
+            if verbose:
+                self.console.print("[bold]Step 3/5:[/bold] Expanding context via dependency graph...")
+
+            search_results = self.context_expander.expand_results(
+                initial_results=search_results,
+                vector_store=self.vector_store,
+                query_vector=query_vector,
+                strategy=expansion_strategy,
+                max_additional_files=5,
+                max_chunks_per_file=2,
+                score_threshold=self.settings.search_score_threshold * 0.8,  # Slightly lower threshold for expanded results
+            )
+
+            if verbose:
+                expansion_summary = self.context_expander.get_expansion_summary(search_results)
+                self.console.print(
+                    f"✓ Expanded to {expansion_summary['unique_files']} files "
+                    f"({expansion_summary['initial_results']} initial + {expansion_summary['expanded_results']} expanded)\n"
+                )
+        else:
+            if verbose:
+                if enable_expansion:
+                    self.console.print("[yellow]Step 3/5: Context expansion skipped (no dependency graph loaded)[/yellow]\n")
+                else:
+                    self.console.print("[dim]Step 3/5: Context expansion disabled[/dim]\n")
+        
+        # Step 4: Assemble context
+        if verbose:
+            self.console.print("[bold]Step 4/5:[/bold] Assembling context...")
+        context = self.context_assembler.assemble_context(search_results)
+        if verbose:
+            self.console.print("✓ Context assembled\n")
+
+        # Step 5: Generate response
+        if verbose:
+            self.console.print("[bold]Step 5/5:[/bold] Generating response...\n")
+        
+        system_prompt = """You are an expert code assistant. Your task is to answer questions about a codebase based on the provided context.
+
+Always reference specific files and line numbers when discussing code.
+Be precise and technical in your explanations.
+If the context doesn't contain enough information, say so clearly."""
+
+        response = self.llm_service.generate_with_context(
+            query=query_text,
+            context=context,
+            system_prompt=system_prompt,
+        )
+        
+        return response
+

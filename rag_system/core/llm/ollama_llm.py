@@ -11,8 +11,10 @@ from typing import Optional, Dict, Any, Generator, List
 
 import ollama
 
+from .base import BaseLLMService
 
-class OllamaLLMService:
+
+class OllamaLLMService(BaseLLMService):
     """
     LLM service using Ollama with gpt-oss:20b or alternative models.
 

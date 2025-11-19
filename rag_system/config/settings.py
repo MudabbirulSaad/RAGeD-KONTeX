@@ -21,6 +21,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # LLM Backend Configuration
+    llm_backend: str = Field(
+        default="ollama",
+        description="LLM backend to use: 'ollama' or 'litellm'",
+    )
+
     # Ollama Configuration
     ollama_base_url: str = Field(
         default="http://localhost:11434",
@@ -33,6 +39,20 @@ class Settings(BaseSettings):
     ollama_llm_model: str = Field(
         default="gpt-oss:20b",
         description="Ollama LLM model name",
+    )
+
+    # LiteLLM Configuration
+    litellm_model: str = Field(
+        default="openai/gpt-4",
+        description="LiteLLM model in format 'provider/model-name'",
+    )
+    litellm_api_key: str = Field(
+        default="",
+        description="API key for LiteLLM provider",
+    )
+    litellm_api_base: str = Field(
+        default="",
+        description="Optional custom API base URL for LiteLLM",
     )
 
     # Qdrant Configuration

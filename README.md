@@ -3,7 +3,7 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-RAG (Retrieval-Augmented Generation) system for indexing and querying local codebases using a self-hosted stack (Ollama + Qdrant). No external API dependencies.
+RAG (Retrieval-Augmented Generation) system for indexing and querying local codebases. Supports multiple LLM backends (Ollama, LiteLLM) and uses Qdrant for vector storage.
 
 ## Features
 
@@ -13,18 +13,36 @@ RAG (Retrieval-Augmented Generation) system for indexing and querying local code
 - **AST-Based Chunking**: Uses LangChain's language-specific splitters to respect code structure
 - **File Context Reconstruction**: Expands ±10 lines around retrieved chunks for syntactic completeness
 - **Interactive Mode**: Chat interface with conversation history
-- **Local-Only**: All processing happens on your machine (Ollama + Qdrant)
+- **Multi-Backend LLM**: Supports Ollama (local) and LiteLLM (100+ providers)
 - **Multi-Language**: Python, JavaScript, TypeScript, Java, C++, Go, Rust, etc.
 
 ## Technology Stack
 
-| Component      | Technology              | Purpose                  |
-| -------------- | ----------------------- | ------------------------ |
-| LLM            | Ollama (gpt-oss:20b)    | Code understanding       |
-| Embeddings     | nomic-embed-text:latest | 768-dim vectors          |
-| Vector Store   | Qdrant                  | Vector database          |
-| Chunking       | LangChain               | AST-based code splitting |
-| Metadata Store | SQLite                  | Codebase registry        |
+| Component      | Technology                       | Purpose                  |
+| -------------- | -------------------------------- | ------------------------ |
+| LLM            | Ollama or LiteLLM (configurable) | Code understanding       |
+| Embeddings     | Ollama (nomic-embed-text:latest) | 768-dim vectors          |
+| Vector Store   | Qdrant                           | Vector database          |
+| Chunking       | LangChain                        | AST-based code splitting |
+| Metadata Store | SQLite                           | Codebase registry        |
+
+### LLM Backend Options
+
+**Ollama (Default)**: Local, self-hosted LLM
+
+- No API keys required
+- Complete privacy
+- Models: gpt-oss:20b, llama2, mistral, etc.
+
+**LiteLLM**: Unified interface to 100+ LLM providers
+
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude 3)
+- Google (Gemini)
+- Azure OpenAI
+- AWS Bedrock
+- Cohere
+- And many more...
 
 ## Architecture
 
@@ -65,8 +83,9 @@ Query → Embed → Search → Expand → Reconstruct → Assemble → LLM → R
 ### Prerequisites
 
 - Conda (Anaconda or Miniconda)
-- Ollama ([ollama.ai](https://ollama.ai))
 - Docker (for Qdrant)
+- **For Ollama backend**: Ollama ([ollama.ai](https://ollama.ai))
+- **For LiteLLM backend**: API keys for your chosen provider
 
 ### Setup
 
@@ -79,15 +98,61 @@ conda activate rag
 cd rag_system
 pip install -r requirements.txt
 
-# 3. Pull Ollama models
+# 3a. For Ollama backend (default)
 ollama pull nomic-embed-text:latest
 ollama pull gpt-oss:20b
+
+# 3b. For LiteLLM backend (optional)
+pip install litellm
 
 # 4. Start Qdrant
 docker-compose up -d
 
-# 5. Verify
+# 5. Configure (copy and edit .env)
+cp .env.example .env
+# Edit .env to set LLM_BACKEND=ollama or LLM_BACKEND=litellm
+
+# 6. Verify
 python scripts/test_system.py
+```
+
+### Configuration
+
+Edit `.env` file to configure LLM backend:
+
+**Ollama (Default)**:
+
+```bash
+LLM_BACKEND=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_LLM_MODEL=gpt-oss:20b
+```
+
+**LiteLLM**:
+
+```bash
+LLM_BACKEND=litellm
+LITELLM_MODEL=openai/gpt-4
+LITELLM_API_KEY=your-api-key-here
+# Optional: LITELLM_API_BASE=https://custom-endpoint.com
+```
+
+**LiteLLM Model Examples**:
+
+- OpenAI: `openai/gpt-4`, `openai/gpt-3.5-turbo`
+- Anthropic: `anthropic/claude-3-opus-20240229`
+- Google: `gemini/gemini-pro`
+- Azure: `azure/gpt-4`
+- OpenRouter: `openrouter/google/gemini-2.5-flash`, `openrouter/anthropic/claude-3.5-sonnet`
+- Ollama via LiteLLM: `ollama/llama2`
+
+**OpenRouter Configuration** (for access to 100+ models):
+
+```bash
+LLM_BACKEND=litellm
+LITELLM_MODEL=openrouter/google/gemini-2.5-flash
+LITELLM_API_KEY=sk-or-v1-your-openrouter-key
+LITELLM_API_BASE=https://openrouter.ai/api/v1
 ```
 
 ## Usage

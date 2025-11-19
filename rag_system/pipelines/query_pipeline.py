@@ -11,7 +11,7 @@ from rich.console import Console
 from ..config import Settings
 from ..core.embeddings import OllamaEmbeddingService
 from ..core.vectorstore import QdrantVectorStore
-from ..core.llm import OllamaLLMService
+from ..core.llm.factory import get_llm_service
 from ..core.graph import DependencyGraph
 from ..core.expansion import ContextExpander, ExpansionStrategy
 from ..core.reconstruction import FileContextReconstructor, ExpandedContext
@@ -146,13 +146,8 @@ class QueryPipeline:
             vector_dimension=self.settings.embedding_dimension,
         )
 
-        self.llm_service = OllamaLLMService(
-            base_url=self.settings.ollama_base_url,
-            model=self.settings.ollama_llm_model,
-            context_window=self.settings.llm_context_window,
-            temperature=self.settings.llm_temperature,
-            max_tokens=self.settings.llm_max_tokens,
-        )
+        # Use factory to create LLM service based on settings
+        self.llm_service = get_llm_service(self.settings)
 
         self.context_assembler = ContextAssembler()
 

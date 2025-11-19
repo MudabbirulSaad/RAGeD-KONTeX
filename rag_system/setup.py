@@ -26,6 +26,10 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=requirements,
+    extras_require={
+        "litellm": ["litellm>=1.0.0"],
+        "all": ["litellm>=1.0.0"],
+    },
     entry_points={
         "console_scripts": [
             "rag-system=rag_system.cli:cli",

@@ -129,20 +129,20 @@ class CodebaseManager:
         
         # Normalize path
         path = str(Path(path).resolve())
-        
-        # Check if codebase already exists
-        cursor.execute("SELECT id FROM codebases WHERE path = ?", (path,))
+
+        # Check if codebase already exists by name or path
+        cursor.execute("SELECT id FROM codebases WHERE name = ? OR path = ?", (name, path))
         existing = cursor.fetchone()
-        
+
         if existing:
             # Update existing
             codebase_id = existing[0]
             cursor.execute("""
                 UPDATE codebases
-                SET name = ?, collection_name = ?, indexed_at = ?,
+                SET name = ?, path = ?, collection_name = ?, indexed_at = ?,
                     file_count = ?, chunk_count = ?, graph_path = ?
                 WHERE id = ?
-            """, (name, collection_name, datetime.now().isoformat(),
+            """, (name, path, collection_name, datetime.now().isoformat(),
                   file_count, chunk_count, graph_path, codebase_id))
         else:
             # Insert new

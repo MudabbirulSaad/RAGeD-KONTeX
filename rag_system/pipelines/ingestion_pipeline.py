@@ -25,21 +25,21 @@ class IngestionPipeline:
     and stores them in Qdrant with rich metadata.
     """
 
-    def __init__(self, settings: Optional[Settings] = None, collection_name: Optional[str] = None):
+    def __init__(self, settings: Optional[Settings] = None, collection_name: str = "codebase_default"):
         """
         Initialize the ingestion pipeline.
 
         Args:
             settings: Application settings (uses defaults if not provided)
-            collection_name: Override collection name (for multi-codebase support)
+            collection_name: Collection name (required for multi-codebase support)
         """
         from ..config import get_settings
 
         self.settings = settings or get_settings()
         self.console = Console()
 
-        # Use provided collection name or default from settings
-        self.collection_name = collection_name or self.settings.qdrant_collection_name
+        # Use provided collection name
+        self.collection_name = collection_name
 
         # Initialize components
         self.loader = CodeLoader(

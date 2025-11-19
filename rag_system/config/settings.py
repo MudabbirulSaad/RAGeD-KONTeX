@@ -44,10 +44,6 @@ class Settings(BaseSettings):
         default=6333,
         description="Qdrant server port",
     )
-    qdrant_collection_name: str = Field(
-        default="codebase_v1",
-        description="Qdrant collection name",
-    )
 
     # Embedding Configuration
     embedding_dimension: int = Field(

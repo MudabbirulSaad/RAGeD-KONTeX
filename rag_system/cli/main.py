@@ -161,9 +161,6 @@ def query(query_text: str, top_k: int, file_filter: str, interactive: bool, no_e
         console.print(f"[dim]Using codebase: {active_codebase.name}[/dim]")
         console.print(f"[dim]Collection: {active_codebase.collection_name}[/dim]\n")
 
-        # Override settings with active codebase's collection
-        settings.qdrant_collection_name = active_codebase.collection_name
-
         # Load dependency graph if available
         dependency_graph = None
         if not no_expansion:
@@ -211,6 +208,7 @@ def query(query_text: str, top_k: int, file_filter: str, interactive: bool, no_e
 
         pipeline = QueryPipeline(
             settings,
+            collection_name=active_codebase.collection_name,
             dependency_graph=dependency_graph,
             codebase_root=active_codebase.path,
         )
@@ -280,30 +278,7 @@ def query(query_text: str, top_k: int, file_filter: str, interactive: bool, no_e
         raise click.Abort()
 
 
-@cli.command()
-def info():
-    """Show collection information."""
-    try:
-        settings = get_settings()
-        from ..core.vectorstore import QdrantVectorStore
-        
-        vector_store = QdrantVectorStore(
-            host=settings.qdrant_host,
-            port=settings.qdrant_port,
-            collection_name=settings.qdrant_collection_name,
-            vector_dimension=settings.embedding_dimension,
-        )
-        
-        info = vector_store.get_collection_info()
-        
-        console.print("\n[bold blue]Collection Information[/bold blue]")
-        console.print(f"Name: {info['name']}")
-        console.print(f"Vectors: {info['vectors_count']}")
-        console.print(f"Points: {info['points_count']}\n")
-        
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise click.Abort()
+
 
 
 @cli.command(name="list-codebases")

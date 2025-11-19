@@ -10,9 +10,9 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="rag-system",
-    version="2.0.0",
-    author="Your Name",
-    description="Agentic RAG System for Local Codebase Indexing",
+    version="2.1.0",
+    author="Mudabbirul Saad",
+    description="RAG System for Local Codebase Indexing",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),

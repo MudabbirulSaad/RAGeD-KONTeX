@@ -124,30 +124,18 @@ experiments/
 *.bak
 *.backup
 
-# Node modules (if any JS tooling)
+# Node modules
 node_modules/
-
-# Package manager locks (optional - uncomment if needed)
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
 
 # Docker volumes
 docker-compose.override.yml
-
-# IDE specific
-*.sublime-project
-*.sublime-workspace
-
-# Compiled translations
-*.mo
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
 
-# Exclude specific test codebases
+# Exclude test codebases
 portfolio-z1/
 test-codebase/
 sample-codebase/
@@ -156,12 +144,4 @@ sample-codebase/
 *.bin
 *.gguf
 *.safetensors
-
-# Exclude generated documentation
-CONTEXT_EXPANSION_*.md
-CRITICAL_FIXES_*.md
-FIXES_APPLIED*.md
-IMPLEMENTATION_SUMMARY*.md
-MULTI_CODEBASE_*.md
-TESTING_GUIDE*.md
 

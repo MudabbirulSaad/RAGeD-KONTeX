@@ -112,6 +112,7 @@ class QueryPipeline:
     def __init__(
         self,
         settings: Optional[Settings] = None,
+        collection_name: str = "codebase_default",
         dependency_graph: Optional[DependencyGraph] = None,
         codebase_root: Optional[str] = None,
     ):
@@ -120,6 +121,7 @@ class QueryPipeline:
 
         Args:
             settings: Application settings (uses defaults if not provided)
+            collection_name: Collection name to query (required for multi-codebase support)
             dependency_graph: Dependency graph for context expansion (optional)
             codebase_root: Root directory of the codebase for file reconstruction (optional)
         """
@@ -140,7 +142,7 @@ class QueryPipeline:
         self.vector_store = QdrantVectorStore(
             host=self.settings.qdrant_host,
             port=self.settings.qdrant_port,
-            collection_name=self.settings.qdrant_collection_name,
+            collection_name=collection_name,
             vector_dimension=self.settings.embedding_dimension,
         )
 
